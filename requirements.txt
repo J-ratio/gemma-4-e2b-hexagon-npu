@@ -1,0 +1,7 @@
+torch>=2.5
+transformers>=5.0
+onnx>=1.16
+onnxruntime>=1.19
+numpy
+aimet-onnx==2.34
+qai-hub>=0.51

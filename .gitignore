@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.onnx
+*.onnx.data
+*.data
+*.encodings
+*_onnx/
+trunk_A16W8/
+trunk_A16W4/
+decode_*/
+*.log
+.venv/
