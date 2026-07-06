@@ -39,6 +39,32 @@ Per-block int4 has two encoding forms in QAIRT; only one has an HTP kernel:
 `lpbq_probe.py` confirms LPBQ-64 int4 **compiles on the S26 HTP** (raw BQ does not). `awq_lpbq_deploy.py`
 compiles the AWQ-scaled group-64 trunk to a QNN context binary.
 
+### Known issue: LPBQ int4 crashes the HTP compiler on autoregressive *decode* graphs (QAIRT 2.45)
+
+LPBQ-64 int4 compiles fine on the **prefill/trunk** graph (static SDPA), but **`qnn-context-binary-generator`
+segfaults (SIGSEGV, exit code -11)** when compiling the **autoregressive decode** graph with the same LPBQ
+encoding — targeting Hexagon v81 (Snapdragon 8 Elite Gen 5), QAIRT 2.45.
+
+- The crash is in **context-binary generation**, *after* `qairt-converter` succeeds — i.e. the AIMET LPBQ
+  encodings and the ONNX→DLC conversion are valid; the HTP backend dies building the on-device kernels. It is
+  a **silent SIGSEGV with no op-level diagnostic** (just "failed with exit code -11").
+- **Root cause: the LPBQ 4-bit weight-packing kernels** (`q::pack_4bit_lpbq_weights_2x`,
+  `q::pack_4bit_lpbq_scales`, `*_w_scale` op variants) are incompletely registered for the decode graph's op
+  mix. Public match: [mllm #678](https://github.com/UbiquitousLearning/mllm/issues/678) —
+  `no properties registered for q::GroupedConv2d_w_scale` → `Selecting disabled op
+  q::pack_4bit_lpbq_weights_2x` → SIGSEGV on isolated LPBQ-int4 attention projections.
+- **Not our graph — verified by elimination.** The segfault persists after: rewriting the KV cache to
+  Qualcomm's shipped Concat / new-slice-output pattern (0 `ScatterND` nodes); excluding the dynamic attention
+  MatMuls from LPBQ; and restricting LPBQ to MLP linears only. Meanwhile **per-channel int4 compiles and runs
+  on the identical decode graph** (it uses HTP's fully-populated per-channel kernels, not the LPBQ packing
+  path).
+- **Consistent with Qualcomm's own recipes:** `qai-hub-models` ships **per-channel int4** for Llama/Gemma
+  decode; LPBQ is opt-in and only wired into the Phi recipe.
+
+**Practical consequence:** on QAIRT 2.45, group-wise/LPBQ int4 (the higher-accuracy recipe) is **prefill-only**;
+the decode graph is capped at **per-channel int4**. Deploying group-64 end-to-end on decode needs a newer
+QAIRT with broader `pack_4bit_lpbq` kernel coverage — there is no graph-side workaround.
+
 ## Files
 - [`w4_explore.py`](w4_explore.py) — composable sweep (rotation / AWQ / GPTQ / group-size / MSE-clip).
 - [`w4_better.py`](w4_better.py) — AWQ + GPTQ (act_order) implementations, MMLU/GSM8K via lm-eval.
