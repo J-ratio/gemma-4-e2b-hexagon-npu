@@ -8,11 +8,21 @@ so that's the path this repo takes: **A16W8** and **A16W4** (int16 activations, 
 with ONNX + [AIMET](https://github.com/quic/aimet) and pushed to real hardware through
 [Qualcomm AI Hub](https://aihub.qualcomm.com/).
 
-This is the **baseline** version — the part that just makes it *work*: a prefill graph that exports
-cleanly, a decode graph you can actually loop for autoregressive generation, a KV cache that survives
-ONNX tracing, and quantize→compile→profile runs on an actual S26 Ultra. It generates the same tokens as
-Hugging Face does, greedily, token for token. The accuracy-recovery tricks (AWQ/GPTQ) and the decode
-speedups live elsewhere; this repo is deliberately the honest starting point they build on.
+The `src/` directory is the **baseline** — the part that just makes it *work*: a prefill graph that exports
+cleanly, a decode graph you can loop for autoregressive generation, a KV cache that survives ONNX tracing,
+and quantize→compile→profile runs on an actual S26 Ultra. It generates the same tokens as Hugging Face does,
+greedily, token for token.
+
+Two further directories hold the research layers built on top:
+
+- **[`quant/`](quant/)** — A16W4 accuracy recipes. AWQ + group-64 + MSE-clip reaches **79.3% top-1
+  agreement vs fp32 / 96% of fp32 MMLU** at pure 4-bit weights (naive RTN-W4 = 60.9%). Includes the
+  LPBQ path for deploying group-wise int4 on the HTP. *Accuracy numbers are weight-only fake-quant
+  simulation (fidelity vs fp32); LPBQ sections report QAIRT compile results — no end-to-end generation
+  claims at 4-bit.*
+- **[`tps/`](tps/)** — decode-speed optimizations. Windowed-KV + broadcast-GQA + int8-KV reach a measured
+  **22.7 tokens/s on the S26 NPU at 4096 ctx (4.77× over the naive full-KV decode)**. Precision-independent;
+  the biggest lever is removing the GQA `expand` op (38% of decode).
 
 ## Why this is harder than it sounds
 
