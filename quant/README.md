@@ -48,6 +48,7 @@ compiles the AWQ-scaled group-64 trunk to a QNN context binary.
 - [`layer_sensitivity.py`](layer_sensitivity.py) — per-layer / per-projection W4 sensitivity map.
 - [`agreement.py`](agreement.py) — top-1 agreement + KL fidelity metric.
 - [`lmeval_quant.py`](lmeval_quant.py) — MMLU + GSM8K across fp32 / W8 / W4.
+- [`run_awq_lmeval.py`](run_awq_lmeval.py) — **self-contained**: quantize to `awq_g64c` and run MMLU+GSM8K via lm-eval on CPU (reproduces [`RESULTS.md`](RESULTS.md)).
 
 ## Notes
 - Measure fidelity with **top-1 agreement + KL**, not perplexity — Gemma-4-E2B-it on raw text gives
